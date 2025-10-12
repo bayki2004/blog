@@ -83,8 +83,7 @@
         const html = window.marked.parse(md);
         contentEl.innerHTML = html;
         if (window.MathJax && window.MathJax.typesetPromise) {
-          await (MathJax.startup?.promise || Promise.resolve());
-          await MathJax.typesetPromise([contentEl]);
+          await MathJax.typesetPromise();
         }
       } catch (e) {
         contentEl.innerHTML = '<p>Failed to load post.</p>';
@@ -99,14 +98,7 @@
   <!-- MathJax for LaTeX rendering -->
   <script>
     window.MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$','$$'], ['\\[','\\]']],
-        processEscapes: true,
-        macros: {
-          R: '{\\mathbb{R}}'
-        }
-      },
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
       svg: { fontCache: 'global' }
     };
   </script>

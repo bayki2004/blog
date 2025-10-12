@@ -12,7 +12,7 @@ When I refer to the Input below, think of that example sentence—a human‑read
 
 ### Pre‑computation
 
-1. **Tokenize**: Each LLM has a tokenizer—a mapping from text to integers. For example, the GPT tokenizer might map the word “The” → 4. The tokenized input is a sequence of integers, e.g., `x = $[4, 5, 8, ...]$`.
+1. **Tokenize**: Each LLM has a tokenizer—a mapping from text to integers. For example, the GPT tokenizer might map the word “The” → 4. The tokenized input is a sequence of integers, e.g., x = [4, 5, 8, …].
 2. **Special tokens**: We prepend a special beginning‑of‑sequence token: ``<|bos|>``. So the model actually sees ``<|bos|>`` followed by your tokenized input.
 
 Assumption for simplicity: the input fits within the context window (so no truncation or loss masking), and we ignore attention masking details here.
@@ -23,7 +23,7 @@ Assume a GPT‑2–like architecture with 12 transformer blocks, 12 attention he
 
 
 Notation: $C=\text{Context Length}$, $E=\text{Embedding Size}$, $H=\text{Number of Heads}$, $d_H=\text{Head Size}$\\
-$$X_{in} \R^{C \times E}, \quad W^{(q)}, W^{(k)}, W^{(v)} \in \R^{E\times E}$$
+$$X_{in} \in \R^{C \times E}, \quad W^{(q)}, W^{(k)}, W^{(v)} \in \R^{E \times E}$$
 
 1. **Embeddings and positional encodings**
    - The token sequence is mapped to embeddings: $X \in \mathbb{R}^{C \times E}$. Each row is a learned embedding vector for one token.
@@ -35,7 +35,7 @@ $$X_{in} \R^{C \times E}, \quad W^{(q)}, W^{(k)}, W^{(v)} \in \R^{E\times E}$$
 $$Q= XW^{(Q)} + b, \quad K = XW^{(k)} + b, \quad V = XW^{(v)} + b$$
 $b=0$ as we assume no bias vector. We also assume no dropout which will be omitted in the future. So for the future we will not write $+b$. 
 
-* Now we reshape our Query, Key, Value Matrices to use Heads, which can be described by following function: $$f_R: \R{C\times E} \rightarrow \R^{H \times C \times d_H}, \quad x_{i,j} \in \R^{C\times E} \rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \R^{H\times C \times d_H}$$
+* Now we reshape our Query, Key, Value Matrices to use Heads, which can be described by following function: $$f_R: \R^{C\times E} \rightarrow \R^{H \times C \times d_H}, \quad x_{i,j} \in \R^{C\times E} \rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \R^{H\times C \times d_H}$$
 
 $$ Q = f(Q), \quad K = f(K), \quad V=f(V)$$
 
@@ -96,11 +96,10 @@ When I say **Input** below, think of that sentence—a human-readable sequence o
 Assume a GPT-2–like architecture with **12 transformer blocks**, **12 attention heads** per block, and **embedding size** (E=768). Let the **context length** be (C) (number of tokens).
 
 **Notation.**
-(C=) Context length, (E=) Embedding size, (H=) Number of heads, (d_H=) Head size with (E = H,d_H).
-$[
+$(C=)$ Context length, $(E=)$ Embedding size, $(H=)$ Number of heads, $(d_H=)$ Head size with $E = H\cdot d_H$.
+$$
 X_{\text{in}} \in \mathbb{R}^{C \times E},
-\quad W^{(q)}, W^{(k)}, W^{(v)} \in \mathbb{R}^{E \times E}.
-]$
+\quad W^{(q)}, W^{(k)}, W^{(v)} \in \mathbb{R}^{E \times E}.$$
 
 ---
 
@@ -108,31 +107,30 @@ X_{\text{in}} \in \mathbb{R}^{C \times E},
 
 **Idea.** Convert discrete tokens to vectors, then inject position information.
 
-* Token embeddings: (X \in \mathbb{R}^{C \times E}) (one row per token).
-* Positional encodings: (P_{\text{enc}} \in \mathbb{R}^{C \times E}).
+* Token embeddings: $(X \in \mathbb{R}^{C \times E})$ (one row per token).
+* Positional encodings: $(P_{\text{enc}} \in \mathbb{R}^{C \times E})$.
 
 **Input to the first block:**
-$[
-H^{(0)} ;=; X + P_{\text{enc}}.
-]$
+
+$$H^{(0)} ;=; X + P_{\text{enc}}.$$
 
 
 
-**Elementwise Computation** how is each $x_{i,j} \in X_{out}$ computed: 
-$
+
+**Elementwise computation** — how each $x^{\text{out}}_{i,j}$ is computed:
+
+$$
 \begin{aligned}
-x^{out}_{i,j} &= x_{i,j} + t^4_{i,j}\\
-&= x_{i,j} +\sum^E_{k=1} t^3_{i,k}w_{k,j}\\
-&= x_{i,j} +\sum^E_{k=1} t^2_{\lfloor \frac{k}{d_H} \rfloor,i,k \bmod d_H}w_{k,j} \\
-&= x_{i,j} +\sum^E_{k=1} (\sum^C_{k'=1}t^1_{\lfloor \frac{k}{d_H} \rfloor, i, k'}v_{\lfloor \frac{k}{d_H} \rfloor, k',k \bmod d_H})w_{k,j} \\
-&= x_{i,j} +\sum^E_{k=1} (\sum^C_{k'=1} \frac{\exp{t^0_{\lfloor \frac{k}{d_H} \rfloor, i, k'}} \mathbf{1}_{\{i \geq k'\}}  }{\sum^C_{k''= 1} \exp{t^0_{\lfloor \frac{k}{d_H} \rfloor, i, k''} \mathbf{1}_{\{i \geq k''\}}}}v_{\lfloor \frac{k}{d_H} \rfloor, k',k \bmod d_H})w_{k,j}  \\
-
-&= x_{i,j} +\sum^E_{k=1} (\sum^C_{k'=1} \frac{\exp{\frac{1}{\sqrt{d_H}}\sum^{d_H}_{k'''=1} q_{\lfloor \frac{k}{d_H} \rfloor, i, k'''} k^{\star}_{\lfloor \frac{k}{d_H} \rfloor, k', k'''}}\mathbf{1}_{\{i \geq k'\}}  }{\sum^C_{k''= 1} \exp{\frac{1}{\sqrt{d_H}}\sum^{d_H}_{k'''=1} q_{\lfloor \frac{k}{d_H} \rfloor, i, k'''} k^{\star}_{\lfloor \frac{k}{d_H} \rfloor, k'', k'''}} \mathbf{1}_{\{i \geq k''\}}}v_{\lfloor \frac{k}{d_H} \rfloor, k',k \bmod d_H})w_{k,j} \\
-
-&= x_{i,j} +\sum^E_{k=1} (\sum^C_{k'=1} \frac{\exp{\frac{1}{\sqrt{d_H}}\sum^{d_H}_{k'''=1} q_{i, \lfloor \frac{k}{d_H} \rfloor d_H + k'''} k^{\star}_{k', \lfloor \frac{k}{d_H} \rfloor d_H + k'''}}\mathbf{1}_{\{i \geq k'\}}  }{\sum^C_{k''= 1} \exp{\frac{1}{\sqrt{d_H}}\sum^{d_H}_{k'''=1} q_{i, \lfloor \frac{k}{d_H} \rfloor d_H + k'''} k^{\star}_{k'', \lfloor \frac{k}{d_H} \rfloor d_H + k'''}} \mathbf{1}_{\{i \geq k''\}}}v_{k', k})w_{k,j} \\
-
-&= x_{i,j} +\sum^E_{k=1} (\sum^C_{k'=1} \frac{\exp{\frac{1}{\sqrt{d_H}}\sum^{d_H}_{k'''=1} \sum^E_{k'''' = 1}x_{i,k''''}w^q_{k'''', \lfloor \frac{k}{d_H} \rfloor d_H + k'''} \sum^E_{k''''=1} x_{k',k''''}  w^k_{k'''', \lfloor \frac{k}{d_H} \rfloor d_H + k'''}}\mathbf{1}_{\{i \geq k'\}}  }{\sum^C_{k''= 1} \exp{\frac{1}{\sqrt{d_H}}\sum^{d_H}_{k'''=1} \sum^E_{k'''' = 1}x_{i,k''''}w^q_{k'''', \lfloor \frac{k}{d_H} \rfloor d_H + k'''} \sum^E_{k''''=1} x_{k'',k''''} w^k_{k'''', \lfloor \frac{k}{d_H} \rfloor d_H + k'''}} \mathbf{1}_{\{i \geq k''\}}} \sum^E_{k''= 1} x_{k',k''} w^v_{k'', k})w_{k,j} \\
+x^{\text{out}}\_{i,j} &= x_{i,j} + t^4_{i,j} \cr
+&= x_{i,j} + \sum_{k=1}^E t^3_{i,k} w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E t^2_{\lfloor k/d_H \rfloor,\, i,\, k \bmod d_H} w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C t^1_{\lfloor k/d_H \rfloor,\, i,\, k'} v_{\lfloor k/d_H \rfloor,\, k',\, k \bmod d_H}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(t^{(0)}\_{\lfloor k/d_H \rfloor,\, i,\, k'}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(t^{(0)}\_{\lfloor k/d_H \rfloor,\, i,\, k''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,\, k',\, k \bmod d_H}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,\, i,\, k'''} k^{\star}\_{\lfloor k/d_H \rfloor,\, k',\, k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,\, i,\, k'''} k^{\star}\_{\lfloor k/d_H \rfloor,\, k'',\, k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,\, k',\, k \bmod d_H}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,\, \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,\, \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k'',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{k',\, k}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k',k''''} w^k_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k'',k''''} w^k_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} \sum_{k''=1}^E x_{k',k''} w^v_{k'',\, k}\right) w_{k,j}
 \end{aligned}
-$
+$$
+
 
 In a full transformer block, this attention sublayer is wrapped with residual connections and layer normalization, followed by a position‑wise feed‑forward network (also with residuals and layer norm). Repeating this block 12 times yields the final hidden states, which are then projected to the vocabulary logits to produce next‑token probabilities.
