@@ -1,0 +1,196 @@
+:root {
+  --bg: #fafaf8;
+  --text: #1c1c1c;
+  --muted: #5c5c5c;
+  --brand: #2a5d9f;
+  --brand-ink: #1c3e66;
+  --border: #e6e1d9;
+  --card: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Source Sans 3", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.6;
+  padding-bottom: 80px; /* space for fixed footer */
+}
+
+.container {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: #fffefc;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+}
+
+.brand-title {
+  font-family: Merriweather, Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-size: 20px;
+}
+
+.brand-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.main-nav a {
+  text-decoration: none;
+  color: var(--brand);
+  margin-left: 18px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.main-nav a.active,
+.main-nav a:hover {
+  background: rgba(42,93,159,0.08);
+  color: var(--brand-ink);
+}
+
+.hero {
+  padding: 48px 0 28px 0;
+}
+
+.hero h1 {
+  font-family: Merriweather, Georgia, serif;
+  font-size: 36px;
+  margin: 0 0 10px 0;
+}
+
+.lead {
+  color: var(--muted);
+  max-width: 720px;
+}
+
+.cta-row { margin-top: 18px; }
+
+.btn {
+  display: inline-block;
+  background: var(--brand);
+  color: white;
+  text-decoration: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-right: 10px;
+}
+
+.btn:hover { background: var(--brand-ink); }
+
+.btn.btn-secondary {
+  background: #e9eef7;
+  color: var(--brand-ink);
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.grid.three {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.callout {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.unstyled { list-style: none; padding-left: 0; margin: 0; }
+.unstyled li { margin: 6px 0; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+.card img { display: block; width: 100%; height: auto; }
+
+.card-body { padding: 14px 14px 16px 14px; }
+
+.card-title {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+}
+
+.card-meta { color: var(--muted); font-size: 13px; }
+
+.card-desc { margin: 8px 0 12px 0; color: #3a3a3a; }
+
+.card-btn {
+  appearance: none;
+  border: none;
+  background: var(--brand);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card-btn:hover { background: var(--brand-ink); }
+
+.post h1 { font-family: Merriweather, Georgia, serif; }
+.post-meta { color: var(--muted); margin-bottom: 12px; }
+.post-content { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.post-content h2, .post-content h3 { font-family: Merriweather, Georgia, serif; }
+.post-nav { margin-top: 16px; }
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 0 0;
+  color: var(--muted);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px; /* reasonable fixed height */
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+/* Markdown defaults */
+.post-content pre { background: #f6f8fa; padding: 12px; overflow: auto; border-radius: 8px; }
+.post-content code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
+.post-content blockquote { border-left: 3px solid var(--border); margin: 0; padding: 8px 14px; color: #444; background: #fffefc; }
+
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1116; --text: #e7e9ee; --muted: #a9b0bc; --brand: #6aa2ff; --brand-ink: #93bbff; --border: #232838; --card: #121521; }
+  .site-header { background: #0f1116; }
+  .callout, .post-content, .card { background: #0f1116; }
+  .btn.btn-secondary { background: #1a2335; color: #cfe0ff; }
+  .post-content pre, .post-content code { background: #121521; }
+  .post-content blockquote { background: #0f1116; }
+}

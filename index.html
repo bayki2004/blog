@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Academic Landing</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+  <script>
+    // Simple client-side router
+    function navigate(route) {
+      window.location.hash = route;
+    }
+    function onRouteChange() {
+      const hash = window.location.hash.replace('#', '') || 'home';
+      document.querySelectorAll('[data-route]').forEach(el => {
+        el.style.display = (el.dataset.route === hash) ? 'block' : 'none';
+      });
+      document.querySelectorAll('nav a').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + hash);
+      });
+      if (hash === 'blog') {
+        renderBlogList();
+      } else if (hash.startsWith('blog/')) {
+        const slug = hash.split('/')[1];
+        renderBlogPost(slug);
+      }
+    }
+
+    // Minimal blog data
+    const BLOG_POSTS = [
+      {
+        slug: 'ai_compute',
+        title: 'What does an LLM actually compute?',
+        date: '2025-10-12',
+        description: 'A walkthrough of how an LLM computes the next word.',
+        file: 'ai_compute.md'
+      }
+    ];
+
+    async function fetchText(path) {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error('Failed to load ' + path);
+      return await res.text();
+    }
+
+    function renderBlogList() {
+      const container = document.getElementById('blog-list');
+      container.innerHTML = '';
+      BLOG_POSTS.forEach(post => {
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-body">
+            <h3 class="card-title">${post.title}</h3>
+            <div class="card-meta">${post.date}</div>
+            <p class="card-desc">${post.description}</p>
+            <button class="card-btn" aria-label="Read ${post.title}">Read</button>
+          </div>
+        `;
+        card.querySelector('.card-btn').addEventListener('click', () => navigate('blog/' + post.slug));
+        container.appendChild(card);
+      });
+    }
+
+    async function renderBlogPost(slug) {
+      const post = BLOG_POSTS.find(p => p.slug === slug);
+      const titleEl = document.getElementById('blog-post-title');
+      const metaEl = document.getElementById('blog-post-meta');
+      const contentEl = document.getElementById('blog-post-content');
+      if (!post) {
+        titleEl.textContent = 'Not found';
+        metaEl.textContent = '';
+        contentEl.innerHTML = '<p>This post could not be found.</p>';
+        return;
+      }
+      titleEl.textContent = post.title;
+      metaEl.textContent = post.date;
+      try {
+        const md = await fetchText(post.file);
+        const html = window.marked.parse(md);
+        contentEl.innerHTML = html;
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          await MathJax.typesetPromise();
+        }
+      } catch (e) {
+        contentEl.innerHTML = '<p>Failed to load post.</p>';
+      }
+    }
+
+    window.addEventListener('hashchange', onRouteChange);
+    window.addEventListener('DOMContentLoaded', onRouteChange);
+  </script>
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- MathJax for LaTeX rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-title">Kaan Bayraktar</div>
+        <div class="brand-subtitle">Personal Blog and Notes</div>
+      </div>
+      <nav class="main-nav" aria-label="Primary">
+        <a href="#home" class="active">Home</a>
+        <a href="#blog">Blog</a>
+        <a href="#gallery">Gallery</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Home -->
+    <section data-route="home" style="display:none">
+      <div class="hero">
+        <h1>About Me</h1>
+        <p class="lead">I'm a Master's Student in Computer Science at ETH Zurich. I'm interested in machine learning and computer vision. I enjoy learning about current topics in focus on security and explainability of AI Systems. I also enjoy applying machine learning and data analysis on football data as its still my favorite hobby. I'm starting this blog to share some things I learned, keep me busy and mainly I just feel like I have to do something otherwise I will massively fall behind.I'm still a football fanatic and enjoy the occasional run, cycle or sailing. Favorite Footballers: Mesut Özil and Cristiano Ronaldo.</p>
+        <div class="cta-row">
+          <a class="btn" href="#blog">Read the blog</a>
+          <a class="btn btn-secondary" href="#gallery">View the gallery</a>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <div class="callout">
+          <h3>Latest</h3>
+          <ul class="unstyled">
+            <li><a href="#blog/ai_compute">What does an LLM actually compute?</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Blog list -->
+    <section data-route="blog" style="display:none">
+      <h2>Blog</h2>
+      <div id="blog-list" class="grid three"></div>
+    </section>
+
+    <!-- Blog post detail -->
+    <section data-route="blog/ai_compute" style="display:none">
+      <article class="post">
+        <h1 id="blog-post-title"></h1>
+        <div id="blog-post-meta" class="post-meta"></div>
+        <div id="blog-post-content" class="post-content"></div>
+        <div class="post-nav">
+          <a href="#blog" class="btn">← Back to Blog</a>
+        </div>
+      </article>
+    </section>
+
+    <!-- Gallery -->
+    <section data-route="gallery" style="display:none">
+      <h2>Gallery</h2>
+      <div class="grid three" id="gallery-grid">
+        <figure class="card">
+          <img src="https://picsum.photos/seed/llm/600/400" alt="Random placeholder" />
+          <figcaption>Research notes, diagrams, and prototypes.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="https://picsum.photos/seed/systems/600/400" alt="Random placeholder" />
+          <figcaption>Systems and tooling experiments.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="https://picsum.photos/seed/math/600/400" alt="Random placeholder" />
+          <figcaption>Math and visualization sketches.</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>© <span id="year"></span> Kaan Bayraktar</span>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
