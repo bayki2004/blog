@@ -3,8 +3,8 @@
 
 Everyone uses ChatGPT or some other LLM for almost everything. I can hardly imagine working without it—I'm using it as I write this. When GPT-2 came out, I mostly thought of AI as a magical box that helps with homework. People would say *“it just predicts the next token”*, but what does that really mean? Even after studying neural networks and transformers, the mechanics felt abstract.
 This is my attempt to explain what *actually happens* a bit more mathematically instead of just matrix multiplications and also give small intuitive explanations. Below I'll try to derive the exact formula for each output number of a transformer architecture, as we essentially have one very long formula (which is supposed to describe "language").
+I’ll focus on a decoder-only GPT-2–style transformer, since that’s the core of most modern LLMs. Encoder–decoder models (like T5 or BERT+decoder hybrids) work similarly, but the decoder-only model is the workhorse behind GPT models. 
 
-I’ll focus on a **decoder-only GPT-2–style transformer**, since that’s the core of most modern LLMs. Encoder–decoder models (like T5 or BERT+decoder hybrids) work similarly, but the decoder-only model is the workhorse behind GPT models. 
 ---
 ## Example Prompt
 
@@ -26,10 +26,10 @@ We’ll assume a GPT-2–like architecture:
 
 $$
 \begin{aligned}
-&\quad X_1 \leftarrow \text{Tokenize}(X_{input}) \\
-&\quad \text{for } i = 1 \rightarrow 12: \\
-&\quad \quad X_{i+1} \leftarrow Block_i(X_{i}) \\
-&\quad X_{14} \leftarrow \text{LayerNorm}(X_{13}) \\
+&\quad X_1 \leftarrow \text{Tokenize}(X_{input}) \cr
+&\quad \text{for } i = 1 \rightarrow 12: \cr
+&\quad \quad X_{i+1} \leftarrow Block_i(X_{i}) \cr
+&\quad X_{14} \leftarrow \text{LayerNorm}(X_{13}) \cr
 &\quad X_{out} \leftarrow \text{FinalProjection}(X_{14})
 \end{aligned}
 $$
@@ -39,17 +39,17 @@ Each Block has the same architecture and consists of an Attention Layer and an M
 
 $$
 \begin{aligned}
-1.&\quad X_{1} \leftarrow \text{Tokenize}(X) \\
-2.&\quad \text{for } i = 1 \rightarrow 12: \\
-&\quad 3.\ X_{i_1} \leftarrow \text{LayerNorm}(X_i) \\
-&\quad 4.\ X_{i_2} \leftarrow \text{Self-AttentionBlock}(X_{i_1}) \\
-&\quad 5.\ X_{i_3} \leftarrow X_{i} + X_{i_2} \quad \text{(residual)}\\
-&\quad 6.\ X_{i_4} \leftarrow \text{LayerNorm}(X_{i_3}) \\
-&\quad 7.\ X_{i_5} \leftarrow \text{Projection}(X_{i_4}) \\
-&\quad 8.\ X_{i_6} \leftarrow \text{GeLU}(X_{i_5}) \\
-&\quad 9.\ X_{i_7} \leftarrow \text{Projection}(X_{i_6}) \\
-&\quad 10.\ X_{i+1} \leftarrow X_{i_3} + X_{i_7} \quad \text{(residual)}\\
-11.&\quad X_{14} \leftarrow \text{LayerNorm}(X_{13}) \\
+1.&\quad X_{1} \leftarrow \text{Tokenize}(X) \cr
+2.&\quad \text{for } i = 1 \rightarrow 12: \cr
+&\quad 3.\ X_{i_1} \leftarrow \text{LayerNorm}(X_i) \cr
+&\quad 4.\ X_{i_2} \leftarrow \text{Self-AttentionBlock}(X_{i_1}) \cr
+&\quad 5.\ X_{i_3} \leftarrow X_{i} + X_{i_2} \quad \text{(residual)}\cr
+&\quad 6.\ X_{i_4} \leftarrow \text{LayerNorm}(X_{i_3}) \cr
+&\quad 7.\ X_{i_5} \leftarrow \text{Projection}(X_{i_4}) \cr
+&\quad 8.\ X_{i_6} \leftarrow \text{GeLU}(X_{i_5}) \cr
+&\quad 9.\ X_{i_7} \leftarrow \text{Projection}(X_{i_6}) \cr
+&\quad 10.\ X_{i+1} \leftarrow X_{i_3} + X_{i_7} \quad \text{(residual)}\cr
+11.&\quad X_{14} \leftarrow \text{LayerNorm}(X_{13}) \cr
 12.&\quad X_{out} \leftarrow \text{FinalProjection}(X_{14})
 \end{aligned}
 $$
@@ -125,7 +125,7 @@ $$
 **(b) Reshape into heads:**
 $$
 \begin{align}
-f_R: \mathbb{R}^{C\times E} &\rightarrow \mathbb{R}^{H\times C\times d_H} \\
+f_R: \mathbb{R}^{C\times E} &\rightarrow \mathbb{R}^{H\times C\times d_H} \cr
 x_{i,j} \in \mathbb{R}^{C \times E} &\rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \mathbb{R}^{C \times C \times d_H}
 \end{align}
 $$
@@ -201,56 +201,57 @@ Once attention has gathered context, the MLP processes each token independently.
 
 **(a) LayerNorm:**
 $$
-X \leftarrow \text{LayerNorm}(X)
+T^{1} \leftarrow \text{LayerNorm}(Attn(X^{l}))
 $$
 
 **(b) Expand to hidden dimension:**
 $$
-X \leftarrow X W_1 + b_1, \quad W_1 \in \mathbb{R}^{E \times 4E}
+T^{2} \leftarrow T^{1} W^{l,1} + b
 $$
 $$
-x_{i,j} = \sum_{k=1}^E x_{i,k} w^{(1)}_{k,j} + b^{(1)}_j
+t_{i,j}^{2} = \sum_{k=1}^E x_{i,k} w_{k,j}^{l,1} + b_j
 $$
 
 **(c) Apply GeLU nonlinearity:**
 $$
-x_{i,j} = \text{GeLU}(x_{i,j})
+t_{i,j}^{3} = \text{GeLU}(t_{i,j}^{2})
 $$
 
 **(d) Project back to embedding size:**
 $$
-X \leftarrow X W_2 + b_2, \quad W_2 \in \mathbb{R}^{4E \times E}
+T^{4} \leftarrow T^{3} W^{l,2} + b, \quad W^{l,2} \in \mathbb{R}^{4E \times E}
 $$
 $$
-x_{i,j} = \sum_{k=1}^{4E} x_{i,k} w^{(2)}_{k,j} + b^{(2)}_j
+t_{i,j}^{4} = \sum_{k=1}^{4E} t_{i,k}^{3} w_{k,j}^{l,2} + b_j
 $$
 
 **(e) Residual connection:**
 $$
-X_{\text{out}} = X_{\text{in}} + X
+X^{l+1} = Attn(X^{l}) + T^{4}
 $$
 
+### **3. Output of Block $i$**
+When we put the above together we get the full output of each block $l$:
+$$
+\begin{align}
+X^{l+1} &= Attn(X^{l}) + T^{4} \cr
+&= Attn(X^{l}) + T^{3} W^{l,2} + b \cr
+&= Attn(X^{l}) + GeLu(T^{2}) W^{l,2} + b \cr
+&= Attn(X^{l}) + GeLu(LN(X^{l}) W^{l,1} + b) W^{l,2} + b \cr
+\end{align}
+$$
 
 **Elementwise Computation**
 Let's continue to work with $x_{i,j}^{attn, l}$ as input to this part of block $l$. 
 
 $$\begin{align}
-x_{i,j}^{l+1} &= x_{i,j}^{attn, l} + \sum_{k=1}^{E} t^{4}_{i,k} w_{k,j}^{l,2} + b_j \cr
-&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(t^{3}_{i,k}) w_{k,j}^{l,2} + b_j \cr
-&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(\sum_{k'=1}^{E}ln(x_{i,k''}^{attn, l})w_{k'',k}^{l,1}+ b_k) w_{k,j}^{l,2} + b_j 
+x_{i,j}^{l+1} &= x_{i,j}^{attn, l} + \sum_{k=1}^{E} t_{i,k}^{3} w_{k,j}^{l,2} + b_j \cr
+&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(t{i,k}^2) w_{k,j}^{l,2} + b_j \cr
+&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(\sum_{k'=1}^{E} t_{i,k}^{1} w_{k'',k}^{l,1}+ b_k) w_{k,j}^{l,2} + b_j \cr
+&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(\sum_{k'=1}^{E} ln(x_{i,k''}^{attn, l})w_{k'',k}^{l,1}+ b_k) w_{k,j}^{l,2} + b_j 
 \end{align}
 $$
 
-### **3. Output of Block $i$**
-
-$$
-\begin{align}
-X_{Block\: i} &= Attn(X_{Block \: i-1}) + XW + b \cr
-&= Attn(X_{Block \: i-1}) + GELU(X)W + b \cr
-&= Attn(X_{Block \: i-1}) + GELU(XW + b)W + b \cr
-&= Attn(X_{Block \: i-1}) + GELU((Attn(X_{Block \: i-1}))W + b)W + b \cr
-\end{align}
-$$
 
 
 ### **4. Output Projection (Logits)**
