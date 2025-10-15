@@ -1,123 +1,172 @@
-## What does an LLM actually compute?
 
-Everyone uses ChatGPT or some LLM for almost everything. I can hardly imagine working without it—I'm using it as I write this. When GPT‑2 came out, I mostly thought of AI as a magical box that helps with homework. People would say “it just predicts the next token,” but what does that really mean? Even after courses on neural networks and transformers, the mechanics can feel opaque. This is my attempt to explain what actually happens—both intuitively and mathematically.
+# What Does an LLM Actually Compute?
 
-I'll focus on a decoder‑only GPT‑2–style transformer. Encoder–decoder models are similar in many ways, but decoder‑only is the workhorse for LLMs today.
+Everyone uses ChatGPT or some other LLM for almost everything. I can hardly imagine working without it—I'm using it as I write this. When GPT-2 came out, I mostly thought of AI as a magical box that helps with homework. People would say *“it just predicts the next token”*, but what does that really mean? Even after studying neural networks and transformers, the mechanics felt abstract.
+This is my attempt to explain what *actually happens*—both intuitively and mathematically.
 
-Let's say you ask GPT:
-
-“The best football player of all time is …”
-
-When I refer to the Input below, think of that example sentence—a human‑readable sequence of words. We'll walk through what the model does before and during computation.
-
-### Pre‑computation
-
-1. **Tokenize**: Each LLM has a tokenizer—a mapping from text to integers. For example, the GPT tokenizer might map the word “The” → 4. The tokenized input is a sequence of integers, e.g., x = [4, 5, 8, …].
-2. **Special tokens**: We prepend a special beginning‑of‑sequence token: ``<|bos|>``. So the model actually sees ``<|bos|>`` followed by your tokenized input.
-
-Assumption for simplicity: the input fits within the context window (so no truncation or loss masking), and we ignore attention masking details here.
-
-## Computation
-
-Assume a GPT‑2–like architecture with 12 transformer blocks, 12 attention heads per block, and embedding size \(e = 768\). Let the context length be \(L\) (the number of tokens in your prompt).
-
-
-Notation: $C=\text{Context Length}$, $E=\text{Embedding Size}$, $H=\text{Number of Heads}$, $d_H=\text{Head Size}$\\
-$$X_{in} \in \R^{C \times E}, \quad W^{(q)}, W^{(k)}, W^{(v)} \in \R^{E \times E}$$
-
-1. **Embeddings and positional encodings**
-   - The token sequence is mapped to embeddings: $X \in \mathbb{R}^{C \times E}$. Each row is a learned embedding vector for one token.
-   - Positional encodings (often sinusoidal or learned) are added: $P_{enc} \in \mathbb{R}^{C \times E}$. The input to the first block is $H = X + P_{enc}$.
-
-2. **Multi-Head Self Attention**
-
-* We start of by computing three projections of the input to obtain the Query, Key, Value Matrices: 
-$$Q= XW^{(Q)} + b, \quad K = XW^{(k)} + b, \quad V = XW^{(v)} + b$$
-$b=0$ as we assume no bias vector. We also assume no dropout which will be omitted in the future. So for the future we will not write $+b$. 
-
-* Now we reshape our Query, Key, Value Matrices to use Heads, which can be described by following function: $$f_R: \R^{C\times E} \rightarrow \R^{H \times C \times d_H}, \quad x_{i,j} \in \R^{C\times E} \rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \R^{H\times C \times d_H}$$
-
-$$ Q = f(Q), \quad K = f(K), \quad V=f(V)$$
-
-* Now comes our Key, Query approximation. This is where we encode our self information: $$T^{(0)} = \frac{QK^T}{\sqrt{d_H}}$$
-
-* Apply Self-Attention Mask: 
-$$T^{(1)} = T^{(0)} \times L, \quad L \in \R^{C \times C} \quad \text{(Lower Triangular Matrix)}$$
-
-* Take the Softmax across the head dimension: $$T^{(1)} = softmax(T^{(1)})$$
-
-* Multiply by Value Matrix: (Applying learned information about previous tokens)
-$$T^{(2)} = T^{(1)} \times V$$
-
-* Reshaping our current multi-head matrix into single head: Applying $f^{-1}_R$:
-$$T^{(3)} = f^{-1}_R(C)$$
-
-* Have One Linear Layer Again as a projection, $W^{(p)} \in \R^{E \times E}$ and assuming no bias again:
-$$T^{(4)} = T^{(3)}W^{(p)}$$
-
-* Finally the Residual Connection: 
-$$ X_{out} = T^{(4)} + X_{in}$$
-
-
-
-Here’s a cleaned-up, blog-style walkthrough that keeps all your math, fixes the formatting, and clarifies a couple of details (notably: softmax is over the **key**/sequence dimension, and masks are applied to the **logits** before softmax).
+We’ll focus on a **decoder-only GPT-2–style transformer**, since that’s the core of most modern LLMs. Encoder–decoder models (like T5 or BERT+decoder hybrids) work similarly, but the decoder-only model is the workhorse behind GPT models.
 
 ---
 
-# What does an LLM actually compute?
-
-Everyone uses ChatGPT or some LLM for almost everything. I can hardly imagine working without it—I'm using it as I write this. When GPT-2 came out, I mostly thought of AI as a magical box that helps with homework. People would say “it just predicts the next token,” but what does that really mean? Even after courses on neural networks and transformers, the mechanics can feel opaque. This is my attempt to explain what actually happens—both intuitively and mathematically.
-
-We’ll focus on a **decoder-only (GPT-2–style)** transformer. Encoder–decoder models are similar, but decoder-only is the workhorse for LLMs today.
-
-Suppose you ask GPT:
+## Example Prompt
 
 > “The best football player of all time is …”
 
-When I say **Input** below, think of that sentence—a human-readable sequence of words. We’ll walk through what the model does **before** and **during** computation.
+Whenever I say **Input** below, think of that sentence—a sequence of words (tokens). We’ll walk through what the model does **before** and **during** computation.
 
 ---
 
-## Pre-computation
+## 1. Pre-computation
 
-1. **Tokenize**
-   Each LLM has a tokenizer mapping text → integers. For example, the GPT tokenizer might map “The” → 4. The tokenized input is a sequence of integers, e.g.
-   `x = $[4, 5, 8, …]$`.
+### Tokenization
 
-2. **Special tokens**
-   We prepend a beginning-of-sequence token `<|bos|>`. So the model actually sees `<|bos|>` followed by your tokens.
-
-*Assumption:* The input fits within the context window; we ignore padding and loss masking here.
-
----
-
-## Computation
-
-Assume a GPT-2–like architecture with **12 transformer blocks**, **12 attention heads** per block, and **embedding size** (E=768). Let the **context length** be (C) (number of tokens).
-
-**Notation.**
-$(C=)$ Context length, $(E=)$ Embedding size, $(H=)$ Number of heads, $(d_H=)$ Head size with $E = H\cdot d_H$.
+Each LLM has a **tokenizer**—a mapping from text to integers.
+Example:
 $$
-X_{\text{in}} \in \mathbb{R}^{C \times E},
-\quad W^{(q)}, W^{(k)}, W^{(v)} \in \mathbb{R}^{E \times E}.$$
+\text{"The"} \rightarrow 4
+$$
+Thus a sentence becomes a sequence of token IDs:
+$$
+x = [4, 5, 8, \dots ]
+$$
+Assume the input fits within the context window (no truncation), and we ignore attention masking details for simplicity.
 
 ---
 
-## 1) Embeddings + Positional Encodings
+## 2. Computation
 
-**Idea.** Convert discrete tokens to vectors, then inject position information.
+We’ll assume a GPT-2–like architecture:
 
-* Token embeddings: $(X \in \mathbb{R}^{C \times E})$ (one row per token).
-* Positional encodings: $(P_{\text{enc}} \in \mathbb{R}^{C \times E})$.
+* 12 transformer blocks
+* 12 attention heads per block
+* Embedding size (E = 768)
+* Context length (C = L) (number of tokens)
 
-**Input to the first block:**
+---
 
-$$H^{(0)} ;=; X + P_{\text{enc}}.$$
+### High-Level Pipeline
 
+$$
+\begin{aligned}
+1.&\quad X \leftarrow \text{Tokenize}(X) \\
+2.&\quad \text{for } i = 1 \rightarrow 12: \\
+&\quad 3.\ X_{\text{in}} \leftarrow X \\
+&\quad 4.\ X \leftarrow \text{LayerNorm}(X) \\
+&\quad 5.\ X \leftarrow \text{AttentionBlock}(X) \\
+&\quad 6.\ X \leftarrow X_{\text{in}} + X \quad \text{(residual)}\\
+&\quad 7.\ X_{\text{in}} \leftarrow X \\
+&\quad 8.\ X \leftarrow \text{LayerNorm}(X) \\
+&\quad 9.\ X \leftarrow \text{Projection}(X) \\
+&\quad 10.\ X \leftarrow \text{GeLU}(X) \\
+&\quad 11.\ X \leftarrow \text{Projection}(X) \\
+&\quad 12.\ X \leftarrow X_{\text{in}} + X \quad \text{(residual)}\\
+13.&\quad X \leftarrow \text{LayerNorm}(X) \\
+14.&\quad X \leftarrow \text{FinalProjection}(X)
+\end{aligned}
+$$
 
+---
 
+## Step-by-Step Walkthrough
 
-**Elementwise computation** — how each $x^{\text{out}}_{i,j}$ is computed:
+### **1. Tokenization and Embedding**
+
+After tokenization, each integer is mapped to a learnable embedding vector and summed with a positional encoding:
+$$
+X \in \mathbb{R}^{C \times E}
+$$
+
+---
+
+### **2. Transformer Block (repeated 12×)**
+
+Each block performs:
+
+1. LayerNorm → Self-Attention → Residual
+2. LayerNorm → MLP → Residual
+
+---
+
+### **3. Layer Normalization**
+
+For each token embedding (x_i \in \mathbb{R}^E):
+$$
+\mu_i = \frac{1}{E} \sum_{j=1}^E x_{i,j}, \quad
+\sigma_i^2 = \frac{1}{E} \sum_{j=1}^E (x_{i,j} - \mu_i)^2
+$$
+Then normalize and scale:
+$$
+y_{i,j} = \gamma_j \frac{x_{i,j} - \mu_i}{\sqrt{\sigma_i^2 + \epsilon}} + \beta_j
+$$
+where $(\gamma, \beta \in \mathbb{R}^E)$ are learnable parameters.
+Output: $(Y \in \mathbb{R}^{C \times E})$.
+
+---
+
+### **4. Multi-Head Self-Attention**
+
+**Notation**
+$$
+X_{\text{in}} \in \mathbb{R}^{C \times E}, \quad
+W^{(Q)}, W^{(K)}, W^{(V)} \in \mathbb{R}^{E \times E}, \quad
+H = \text{\# heads}, \quad d_H = E / H
+$$
+
+**(a) Linear projections:**
+$$
+Q = XW^{(Q)}, \quad K = XW^{(K)}, \quad V = XW^{(V)}
+$$
+
+**(b) Reshape into heads:**
+$$
+\begin{align}
+f_R: \mathbb{R}^{C\times E} &\rightarrow \mathbb{R}^{H\times C\times d_H} \\
+x_{i,j} \in \R^{C \times E} &\rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \R^{C \times C \times d_H}
+\end{align}
+$$
+
+$$
+Q, K, V = f_R(Q), f_R(K), f_R(V)
+$$
+
+**(c) Scaled dot-product attention:**
+$$
+T^{(0)} = \frac{QK^\top}{\sqrt{d_H}}
+$$
+
+**(d) Apply causal (lower-triangular) mask (L \in \mathbb{R}^{C \times C}):**
+$$
+T^{(1)} = T^{(0)} \odot L
+$$
+
+**(e) Softmax along sequence dimension:**
+$$
+T^{(1)} = \text{softmax}(T^{(1)})
+$$
+
+**(f) Multiply by values:**
+$$
+T^{(2)} = T^{(1)} V
+$$
+
+**(g) Merge heads back:**
+$$
+T^{(3)} = f_R^{-1}(T^{(2)})
+$$
+
+**(h) Output projection:**
+$$
+T^{(4)} = T^{(3)} W^{(P)}, \quad W^{(P)} \in \mathbb{R}^{E \times E}
+$$
+
+**(i) Residual connection:**
+$$
+X_{\text{out}} = X_{\text{in}} + T^{(4)}
+$$
+
+---
+
+### **5. Elementwise Expression**
 
 $$
 \begin{aligned}
@@ -132,5 +181,79 @@ x^{\text{out}}\_{i,j} &= x_{i,j} + t^4_{i,j} \cr
 \end{aligned}
 $$
 
+This is the full unrolled computation of attention + projection per output dimension.
 
-In a full transformer block, this attention sublayer is wrapped with residual connections and layer normalization, followed by a position‑wise feed‑forward network (also with residuals and layer norm). Repeating this block 12 times yields the final hidden states, which are then projected to the vocabulary logits to produce next‑token probabilities.
+---
+
+### **6. Feedforward MLP**
+
+After attention and residual addition:
+
+**(a) LayerNorm:**
+$$
+X \leftarrow \text{LayerNorm}(X)
+$$
+
+**(b) Expand to hidden dimension:**
+$$
+X \leftarrow X W_1 + b_1, \quad W_1 \in \mathbb{R}^{E \times 4E}
+$$
+$$
+x_{i,j} = \sum_{k=1}^E x_{i,k} w^{(1)}_{k,j} + b^{(1)}_j
+$$
+
+**(c) Apply GeLU nonlinearity:**
+$$
+x_{i,j} = \text{GeLU}(x_{i,j})
+$$
+
+**(d) Project back to embedding size:**
+$$
+X \leftarrow X W_2 + b_2, \quad W_2 \in \mathbb{R}^{4E \times E}
+$$
+$$
+x_{i,j} = \sum_{k=1}^{4E} x_{i,k} w^{(2)}_{k,j} + b^{(2)}_j
+$$
+
+**(e) Residual connection:**
+$$
+X_{\text{out}} = X_{\text{in}} + X
+$$
+
+---
+
+### **7. Output Projection (Logits)**
+
+After all blocks:
+$$
+X \in \mathbb{R}^{C \times E}
+$$
+
+Apply final LayerNorm and a linear projection to vocabulary dimension:
+$$
+\text{Logits} = X W^{(\text{vocab})} + b, \quad W^{(\text{vocab})} \in \mathbb{R}^{E \times |\mathcal{V}|}
+$$
+
+Each element:
+$$
+x_{i,j} = \sum_{k=1}^E x_{i,k} w_{k,j} + b_j
+$$
+
+---
+
+### **Interpretation**
+
+$$
+x_{i,j} = \text{logit representing } P(\text{token } j \mid \text{previous } i-1 \text{ tokens})
+$$
+
+The softmax of each row gives the probability distribution over the next token.
+
+---
+
+✅ **In short:**
+An LLM computes, for every position (i),
+$$
+P(x_i \mid x_{<i}) = \text{softmax}(X_i W^{(\text{vocab})})
+$$
+and learns parameters (W), (b), (\gamma), (\beta) that maximize the likelihood of the training text.
