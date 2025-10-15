@@ -121,7 +121,7 @@ $$
 $$
 \begin{align}
 f_R: \mathbb{R}^{C\times E} &\rightarrow \mathbb{R}^{H\times C\times d_H} \\
-x_{i,j} \in \R^{C \times E} &\rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \R^{C \times C \times d_H}
+x_{i,j} \in \mathbb{R}^{C \times E} &\rightarrow x_{\lfloor \frac{j}{d_H} \rfloor, i, j \bmod d_H} \in \mathbb{R}^{C \times C \times d_H}
 \end{align}
 $$
 
@@ -172,12 +172,12 @@ $$
 \begin{aligned}
 x^{\text{out}}\_{i,j} &= x_{i,j} + t^4_{i,j} \cr
 &= x_{i,j} + \sum_{k=1}^E t^3_{i,k} w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E t^2_{\lfloor k/d_H \rfloor,\, i,\, k \bmod d_H} w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C t^1_{\lfloor k/d_H \rfloor,\, i,\, k'} v_{\lfloor k/d_H \rfloor,\, k',\, k \bmod d_H}\right) w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(t^{(0)}\_{\lfloor k/d_H \rfloor,\, i,\, k'}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(t^{(0)}\_{\lfloor k/d_H \rfloor,\, i,\, k''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,\, k',\, k \bmod d_H}\right) w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,\, i,\, k'''} k^{\star}\_{\lfloor k/d_H \rfloor,\, k',\, k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,\, i,\, k'''} k^{\star}\_{\lfloor k/d_H \rfloor,\, k'',\, k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,\, k',\, k \bmod d_H}\right) w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,\, \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,\, \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k'',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{k',\, k}\right) w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k',k''''} w^k_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\!\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k'',k''''} w^k_{k'''',\, \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} \sum_{k''=1}^E x_{k',k''} w^v_{k'',\, k}\right) w_{k,j}
+&= x_{i,j} + \sum_{k=1}^E t^2_{\lfloor k/d_H \rfloor,  i,  k \bmod d_H} w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C t^1_{\lfloor k/d_H \rfloor,  i,  k'} v_{\lfloor k/d_H \rfloor,  k',  k \bmod d_H}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(t^{(0)}\_{\lfloor k/d_H \rfloor,  i,  k'}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(t^{(0)}\_{\lfloor k/d_H \rfloor,  i,  k''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,  k',  k \bmod d_H}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,  i,  k'''} k^{\star}\_{\lfloor k/d_H \rfloor,  k',  k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,  i,  k'''} k^{\star}\_{\lfloor k/d_H \rfloor,  k'',  k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,  k',  k \bmod d_H}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,  \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,  \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k'',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{k',  k}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k',k''''} w^k_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k'',k''''} w^k_{k'''', \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} \sum_{k''=1}^E x_{k',k''} w^v_{k'', k}\right) w_{k,j}
 \end{aligned}
 $$
 
