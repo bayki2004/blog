@@ -2,25 +2,76 @@
 # What Does an LLM Actually Compute?
 
 Everyone uses ChatGPT or some other LLM for almost everything. I can hardly imagine working without it—I'm using it as I write this. When GPT-2 came out, I mostly thought of AI as a magical box that helps with homework. People would say *“it just predicts the next token”*, but what does that really mean? Even after studying neural networks and transformers, the mechanics felt abstract.
-This is my attempt to explain what *actually happens*—both intuitively and mathematically.
+This is my attempt to explain what *actually happens* a bit more mathematically instead of just matrix multiplications and also give small intuitive explanations. Below I'll try to derive the exact formula for each output number of a transformer architecture, as we essentially have one very long formula (which is supposed to describe "language").
 
-We’ll focus on a **decoder-only GPT-2–style transformer**, since that’s the core of most modern LLMs. Encoder–decoder models (like T5 or BERT+decoder hybrids) work similarly, but the decoder-only model is the workhorse behind GPT models.
-
+I’ll focus on a **decoder-only GPT-2–style transformer**, since that’s the core of most modern LLMs. Encoder–decoder models (like T5 or BERT+decoder hybrids) work similarly, but the decoder-only model is the workhorse behind GPT models. 
 ---
-
 ## Example Prompt
 
 > “The best football player of all time is …”
 
 Whenever I say **Input** below, think of that sentence—a sequence of words (tokens). We’ll walk through what the model does **before** and **during** computation.
 
+We’ll assume a GPT-2–like architecture:
+
+* 12 transformer blocks
+* 12 attention heads per block
+* Embedding size (E = 768)
+* Context length (C = L) (number of tokens)
+
+## 1. Computation
+
+### High-Level Pipeline
+
+
+$$
+\begin{aligned}
+&\quad X_1 \leftarrow \text{Tokenize}(X_{input}) \\
+&\quad \text{for } i = 1 \rightarrow 12: \\
+&\quad \quad X_{i+1} \leftarrow Block_i(X_{i}) \\
+&\quad X_{14} \leftarrow \text{LayerNorm}(X_{13}) \\
+&\quad X_{out} \leftarrow \text{FinalProjection}(X_{14})
+\end{aligned}
+$$
+
+As we can see the main computation happens in each Block: 
+Each Block has the same architecture and consists of an Attention Layer and an MLP. If we unroll what happens at each block we obtain following pipeline:
+
+$$
+\begin{aligned}
+1.&\quad X_{1} \leftarrow \text{Tokenize}(X) \\
+2.&\quad \text{for } i = 1 \rightarrow 12: \\
+&\quad 3.\ X_{i_1} \leftarrow \text{LayerNorm}(X_i) \\
+&\quad 4.\ X_{i_2} \leftarrow \text{Self-AttentionBlock}(X_{i_1}) \\
+&\quad 5.\ X_{i_3} \leftarrow X_{i} + X_{i_2} \quad \text{(residual)}\\
+&\quad 6.\ X_{i_4} \leftarrow \text{LayerNorm}(X_{i_3}) \\
+&\quad 7.\ X_{i_5} \leftarrow \text{Projection}(X_{i_4}) \\
+&\quad 8.\ X_{i_6} \leftarrow \text{GeLU}(X_{i_5}) \\
+&\quad 9.\ X_{i_7} \leftarrow \text{Projection}(X_{i_6}) \\
+&\quad 10.\ X_{i+1} \leftarrow X_{i_3} + X_{i_7} \quad \text{(residual)}\\
+11.&\quad X_{14} \leftarrow \text{LayerNorm}(X_{13}) \\
+12.&\quad X_{out} \leftarrow \text{FinalProjection}(X_{14})
+\end{aligned}
+$$
+
 ---
 
-## 1. Pre-computation
+## Step-by-Step Walkthrough
+### **Notations**
 
-### Tokenization
+**Notation**
+$$
+X_{\text{i}} \in \mathbb{R}^{C \times E}, \quad
+W^{(Q), i}, W^{(K),i}, W^{(V),i} \in \mathbb{R}^{E \times E}, \quad
+H = \text{\# heads}, \quad d_H = E / H
+$$
+$W^{i, j} ;=$ denotes the $j-th$ learnable parameter matrix at block $i$ and $W^{(Q), i}, W^{(K),i}, W^{(V),i}$ denote the Key, Query, Value Matrices in block $i$. $X_{i} ;=$ is the **input** to Block $i$ and we denote $x_{j,k}^{(i)} \in X_{i}$ to show which element of the input $X_{i}$, when its clear to which matrix and element belongs to I will omit writing it and just write: $x_{i,j}$.
+
+### **1. Tokenization and Embedding**
 
 Each LLM has a **tokenizer**—a mapping from text to integers.
+The first step is to turn words into numbers the model can work with. Tokenization breaks the text into subword units, each mapped to an integer ID.
+These IDs are then turned into continuous vectors (embeddings), which let the model represent relationships between tokens as geometric patterns in a high-dimensional space.
 Example:
 $$
 \text{"The"} \rightarrow 4
@@ -31,65 +82,25 @@ x = [4, 5, 8, \dots ]
 $$
 Assume the input fits within the context window (no truncation), and we ignore attention masking details for simplicity.
 
----
-
-## 2. Computation
-
-We’ll assume a GPT-2–like architecture:
-
-* 12 transformer blocks
-* 12 attention heads per block
-* Embedding size (E = 768)
-* Context length (C = L) (number of tokens)
-
----
-
-### High-Level Pipeline
-
-$$
-\begin{aligned}
-1.&\quad X \leftarrow \text{Tokenize}(X) \\
-2.&\quad \text{for } i = 1 \rightarrow 12: \\
-&\quad 3.\ X_{\text{in}} \leftarrow X \\
-&\quad 4.\ X \leftarrow \text{LayerNorm}(X) \\
-&\quad 5.\ X \leftarrow \text{AttentionBlock}(X) \\
-&\quad 6.\ X \leftarrow X_{\text{in}} + X \quad \text{(residual)}\\
-&\quad 7.\ X_{\text{in}} \leftarrow X \\
-&\quad 8.\ X \leftarrow \text{LayerNorm}(X) \\
-&\quad 9.\ X \leftarrow \text{Projection}(X) \\
-&\quad 10.\ X \leftarrow \text{GeLU}(X) \\
-&\quad 11.\ X \leftarrow \text{Projection}(X) \\
-&\quad 12.\ X \leftarrow X_{\text{in}} + X \quad \text{(residual)}\\
-13.&\quad X \leftarrow \text{LayerNorm}(X) \\
-14.&\quad X \leftarrow \text{FinalProjection}(X)
-\end{aligned}
-$$
-
----
-
-## Step-by-Step Walkthrough
-
-### **1. Tokenization and Embedding**
-
 After tokenization, each integer is mapped to a learnable embedding vector and summed with a positional encoding:
 $$
-X \in \mathbb{R}^{C \times E}
+X_1 \in \mathbb{R}^{C \times E}
 $$
 
 ---
 
 ### **2. Transformer Block (repeated 12×)**
 
-Each block performs:
-
-1. LayerNorm → Self-Attention → Residual
-2. LayerNorm → MLP → Residual
+Each transformer block refines the token representations through two main components:
+(1) Self-attention, which lets each token gather information from relevant previous tokens, and
+(2) Feedforward MLP, which applies nonlinear transformations to enrich the representation.
 
 ---
+#### **2.1. Attention Layer**
 
-### **3. Layer Normalization**
+This is the first part of each block, which consists of steps 3,4,5 in above pipeline:
 
-For each token embedding (x_i \in \mathbb{R}^E):
+**2.1.1 LayerNorm** Before computing attention, we normalize each token’s vector so that the following computations are numerically stable and independent of scaling differences between tokens. We take each element $x_{j,k}^{i} \in X_i$ and normalize accordingly:
 $$
 \mu_i = \frac{1}{E} \sum_{j=1}^E x_{i,j}, \quad
 \sigma_i^2 = \frac{1}{E} \sum_{j=1}^E (x_{i,j} - \mu_i)^2
@@ -99,22 +110,16 @@ $$
 y_{i,j} = \gamma_j \frac{x_{i,j} - \mu_i}{\sqrt{\sigma_i^2 + \epsilon}} + \beta_j
 $$
 where $(\gamma, \beta \in \mathbb{R}^E)$ are learnable parameters.
-Output: $(Y \in \mathbb{R}^{C \times E})$.
+We can write this as a function of $ln(x_{i,j}) = \gamma_j \frac{x_{i,j} - \mu_i}{\sqrt{\sigma_i^2 + \epsilon}} + \beta_j$
 
 ---
 
-### **4. Multi-Head Self-Attention**
-
-**Notation**
-$$
-X_{\text{in}} \in \mathbb{R}^{C \times E}, \quad
-W^{(Q)}, W^{(K)}, W^{(V)} \in \mathbb{R}^{E \times E}, \quad
-H = \text{\# heads}, \quad d_H = E / H
-$$
+**2.1.2 Multi-Head Self-Attention**
+Now the model computes how much each token should attend to previous tokens. This is done by projecting the input into three different spaces: Queries (what I want), Keys (what I offer), and Values (what I carry)
 
 **(a) Linear projections:**
 $$
-Q = XW^{(Q)}, \quad K = XW^{(K)}, \quad V = XW^{(V)}
+Q^{(i)} = XW^{(Q),i}+b, \quad K^{(i)} = XW^{(K),i}+b, \quad V^{(i)} = XW^{(V),i}+b
 $$
 
 **(b) Reshape into heads:**
@@ -130,6 +135,7 @@ Q, K, V = f_R(Q), f_R(K), f_R(V)
 $$
 
 **(c) Scaled dot-product attention:**
+The attention score between token i and token j is the scaled dot product of their query and key vectors. The higher this score, the more i will attend to j.
 $$
 T^{(0)} = \frac{QK^\top}{\sqrt{d_H}}
 $$
@@ -164,30 +170,34 @@ $$
 X_{\text{out}} = X_{\text{in}} + T^{(4)}
 $$
 
----
 
-### **5. Elementwise Expression**
+**Elementwise Expression**
+
+This is the full unrolled computation of attention + projection per output dimension. This way we express the output of any attention layer at any block.
+The output is a new contextualized embedding for each token: its original representation plus a weighted mix of information from other relevant tokens. In the last line we explicitely show the indexing for the output of the attention layer in block $l$
 
 $$
 \begin{aligned}
-x^{\text{out}}\_{i,j} &= x_{i,j} + t^4_{i,j} \cr
+x_{i,j}^{\text{attn}} &= x_{i,j} + t^4_{i,j} \cr
 &= x_{i,j} + \sum_{k=1}^E t^3_{i,k} w_{k,j} \cr
 &= x_{i,j} + \sum_{k=1}^E t^2_{\lfloor k/d_H \rfloor,  i,  k \bmod d_H} w_{k,j} \cr
 &= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C t^1_{\lfloor k/d_H \rfloor,  i,  k'} v_{\lfloor k/d_H \rfloor,  k',  k \bmod d_H}\right) w_{k,j} \cr
 &= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(t^{(0)}\_{\lfloor k/d_H \rfloor,  i,  k'}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(t^{(0)}\_{\lfloor k/d_H \rfloor,  i,  k''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,  k',  k \bmod d_H}\right) w_{k,j} \cr
 &= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,  i,  k'''} k^{\star}\_{\lfloor k/d_H \rfloor,  k',  k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{\lfloor k/d_H \rfloor,  i,  k'''} k^{\star}\_{\lfloor k/d_H \rfloor,  k'',  k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{\lfloor k/d_H \rfloor,  k',  k \bmod d_H}\right) w_{k,j} \cr
 &= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,  \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} q_{i,  \lfloor k/d_H \rfloor d_H + k'''} k^{\star}\_{k'',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} v_{k',  k}\right) w_{k,j} \cr
-&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k',k''''} w^k_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k'',k''''} w^k_{k'''', \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} \sum_{k''=1}^E x_{k',k''} w^v_{k'', k}\right) w_{k,j}
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k',k''''} w^k_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E x_{i,k''''} w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E x_{k'',k''''} w^k_{k'''', \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} \sum_{k''=1}^E x_{k',k''} w^v_{k'', k}\right) w_{k,j} \cr
+&= x_{i,j} + \sum_{k=1}^E \left(\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E ln(x_{i,k''''}) w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E ln(x_{k',k''''}) w^k_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k'\}}}{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E ln(x_{i,k''''}) w^q_{k'''',  \lfloor k/d_H \rfloor d_H + k'''} \sum_{k''''=1}^E ln(x_{k'',k''''}) w^k_{k'''', \lfloor k/d_H \rfloor d_H + k'''}\right) \mathbf{1}\_{\{i \geq k''\}}} \sum_{k''=1}^E ln(x_{k',k''}) w^v_{k'', k}\right) w_{k,j} \cr
+x_{i,j}^{attn, l+1} &= x_{i,j}^{(l)} + \sum_{k=1}^E \left((\sum_{k'=1}^C \frac{\exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E ln(x_{i,k''''}^{(l)})) w_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}^{(q),l} \sum_{k''''=1}^E ln(x_{k',k''''}^{(l)}) w_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}^{(k), l} \right) \mathbf{1}\_{\{i \geq k'\}}}
+{\sum_{k''=1}^C \exp\left(\frac{1}{\sqrt{d_H}} \sum_{k'''=1}^{d_H} \sum_{k''''=1}^E ln(x_{i,k''''}^{(l)}) w_{k'''',  \lfloor k/d_H \rfloor d_H + k'''}^{(q), l} \sum_{k''''=1}^E ln(x_{k'',k''''}^{(l)}) w_{k'''', \lfloor k/d_H \rfloor d_H + k'''}^{(k), l}\right) \mathbf{1}\_{\{i \geq k''\}}} 
+\sum_{k''=1}^E ln(x_{k',k''}^{(l)}) w_{k'', k}^{(v), l} \right) w_{k,j}^{l,1}
 \end{aligned}
 $$
 
-This is the full unrolled computation of attention + projection per output dimension.
-
 ---
 
-### **6. Feedforward MLP**
+#### **2.2 Feedforward MLP**
 
-After attention and residual addition:
+Once attention has gathered context, the MLP processes each token independently. It expands the embedding dimension, applies a nonlinear transformation (GeLU), and compresses it back. This helps the model capture complex patterns that attention alone cannot.
 
 **(a) LayerNorm:**
 $$
@@ -220,16 +230,36 @@ $$
 X_{\text{out}} = X_{\text{in}} + X
 $$
 
----
 
-### **7. Output Projection (Logits)**
+**Elementwise Computation**
+Let's continue to work with $x_{i,j}^{attn, l}$ as input to this part of block $l$. 
 
-After all blocks:
+$$\begin{align}
+x_{i,j}^{l+1} &= x_{i,j}^{attn, l} + \sum_{k=1}^{E} t^{4}_{i,k} w_{k,j}^{l,2} + b_j \cr
+&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(t^{3}_{i,k}) w_{k,j}^{l,2} + b_j \cr
+&= x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(\sum_{k'=1}^{E}ln(x_{i,k''}^{attn, l})w_{k'',k}^{l,1}+ b_k) w_{k,j}^{l,2} + b_j 
+\end{align}
+$$
+
+### **3. Output of Block $i$**
+
+$$
+\begin{align}
+X_{Block\: i} &= Attn(X_{Block \: i-1}) + XW + b \cr
+&= Attn(X_{Block \: i-1}) + GELU(X)W + b \cr
+&= Attn(X_{Block \: i-1}) + GELU(XW + b)W + b \cr
+&= Attn(X_{Block \: i-1}) + GELU((Attn(X_{Block \: i-1}))W + b)W + b \cr
+\end{align}
+$$
+
+
+### **4. Output Projection (Logits)**
+
+After passing through all layers, we obtain a contextual embedding for each token — a compact representation of everything the model “knows” so far about it and its context.
+The final linear layer maps this embedding into a vector the size of the vocabulary, producing one logit per possible next token.
 $$
 X \in \mathbb{R}^{C \times E}
 $$
-
-Apply final LayerNorm and a linear projection to vocabulary dimension:
 $$
 \text{Logits} = X W^{(\text{vocab})} + b, \quad W^{(\text{vocab})} \in \mathbb{R}^{E \times |\mathcal{V}|}
 $$
@@ -238,6 +268,21 @@ Each element:
 $$
 x_{i,j} = \sum_{k=1}^E x_{i,k} w_{k,j} + b_j
 $$
+
+
+### **5. Putting it all togethter**
+
+Now if we assume 12 layers we can express one output $x_{i,j}^{out}$ following way using the notation and expressions derived above:
+
+$$
+\begin{align}
+x_{i,j}^{out} &= \sum_{k=1}^{E} x_{i,k} w_{k,j} + b_j \cr
+&= \sum_{k=1}^{E} ln(x_{i,k}^{13}) w_{k,j} + b_j \cr
+&= \sum_{k=1}^{E} ln(x_{i,k}^{13}) w_{k,j} + b_j ,\quad x_{i,k}^{l} = x_{i,j}^{attn, l} + \sum_{k=1}^{E} GeLU(\sum_{k'=1}^{E}ln(x_{i,k''}^{attn, l})w_{k'',k}^{l,1}+ b_k) w_{k,j}^{l,2} + b_j , \: 1 \leq l \leq 13 \cr
+\end{align}
+$$
+
+So in total we do above computation for all $x_{i,j}^{out}$ which are $C \times VocabSize$ elements (Output Dimension).
 
 ---
 
@@ -256,4 +301,4 @@ An LLM computes, for every position (i),
 $$
 P(x_i \mid x_{<i}) = \text{softmax}(X_i W^{(\text{vocab})})
 $$
-and learns parameters (W), (b), (\gamma), (\beta) that maximize the likelihood of the training text.
+and learns parameters $(W), (b), (\gamma), (\beta)$ that maximize the likelihood of the training text.
