@@ -25,7 +25,7 @@ body {
 
 .container {
   width: 100%;
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -162,7 +162,7 @@ body {
 
 .post h1 { font-family: Merriweather, Georgia, serif; }
 .post-meta { color: var(--muted); margin-bottom: 12px; }
-.post-content { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.post-content { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
 .post-content h2, .post-content h3 { font-family: Merriweather, Georgia, serif; }
 .post-nav { margin-top: 16px; }
 
