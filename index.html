@@ -26,6 +26,8 @@
       } else if (hash.startsWith('blog/')) {
         const slug = hash.split('/')[1];
         renderBlogPost(slug);
+        const postSection = document.querySelector('[data-route="blog/post"]');
+        if (postSection) postSection.style.display = 'block';
       }
     }
 
@@ -37,6 +39,12 @@
         date: '2025-10-12',
         description: 'A walkthrough of how an LLM computes the next word.',
         file: 'ai_compute.md'
+      },
+      {
+        slug: 'homography',
+        title: 'Test out Homography',
+        date: '2025-11-05',
+        description: 'Upload two images and see the stitched panorama.'
       }
     ];
 
@@ -78,6 +86,55 @@
       }
       titleEl.textContent = post.title;
       metaEl.textContent = post.date;
+      if (slug === 'homography') {
+        contentEl.innerHTML = `
+          <div class="callout">
+            <p>Select two overlapping photos to compute a panorama using homography estimation.</p>
+          </div>
+          <form id="h-form" class="grid two" style="align-items:flex-start;">
+            <div>
+              <label>Image 1<br><input id="h-file1" type="file" accept="image/*" required></label>
+            </div>
+            <div>
+              <label>Image 2<br><input id="h-file2" type="file" accept="image/*" required></label>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <button type="submit" class="btn">Compute</button>
+              <span id="h-status" style="margin-left:10px;color:var(--muted);"></span>
+            </div>
+          </form>
+          <div id="h-result" class="callout" style="margin-top:12px; display:none;"></div>
+        `;
+        const form = document.getElementById('h-form');
+        const file1 = document.getElementById('h-file1');
+        const file2 = document.getElementById('h-file2');
+        const statusEl = document.getElementById('h-status');
+        const resultEl = document.getElementById('h-result');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (!file1.files[0] || !file2.files[0]) return;
+          statusEl.textContent = 'Computing…';
+          resultEl.style.display = 'none';
+          const fd = new FormData();
+          fd.append('file1', file1.files[0]);
+          fd.append('file2', file2.files[0]);
+          try {
+            const res = await fetch('/api/homography', { method: 'POST', body: fd });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || 'Request failed');
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            resultEl.innerHTML = `<img src="${url}" alt="Stitched result" style="max-width:100%;height:auto;border-radius:8px;">`;
+            resultEl.style.display = 'block';
+            statusEl.textContent = '';
+          } catch (err) {
+            statusEl.textContent = 'Error: ' + (err.message || err);
+          }
+        });
+        return;
+      }
       try {
         const md = await fetchText(post.file);
         const html = window.marked.parse(md);
@@ -86,7 +143,11 @@
           await MathJax.typesetPromise();
         }
       } catch (e) {
-        contentEl.innerHTML = '<p>Failed to load post.</p>';
+        const isFileProtocol = window.location.protocol === 'file:';
+        const hint = isFileProtocol
+          ? ' This usually happens when opening the HTML file directly. Please run a local server (e.g., python3 -m http.server) and open via http://localhost.'
+          : '';
+        contentEl.innerHTML = '<p>Failed to load post.' + hint + '</p>';
       }
     }
 
@@ -150,7 +211,7 @@
     </section>
 
     <!-- Blog post detail -->
-    <section data-route="blog/ai_compute" style="display:none">
+    <section data-route="blog/post" style="display:none">
       <article class="post">
         <h1 id="blog-post-title"></h1>
         <div id="blog-post-meta" class="post-meta"></div>
