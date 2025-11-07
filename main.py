@@ -7,6 +7,16 @@ from homography import stitch_images
 app = Flask(__name__, static_folder='.', static_url_path='')
 
 
+def resize_max_edge(img: np.ndarray, max_edge: int = 1600) -> np.ndarray:
+    h, w = img.shape[:2]
+    scale = min(1.0, max_edge / max(h, w))
+    if scale >= 0.999:
+        return img
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+    return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+
 @app.get("/")
 def root():
     return app.send_static_file("index.html")
@@ -23,7 +33,10 @@ def api_homography():
     if img1 is None or img2 is None:
         return jsonify({"error": "Invalid image(s) provided"}), 400
     try:
-        stitched = stitch_images(img1, img2)
+        # downscale for speed, reduce features and iterations
+        img1_s = resize_max_edge(img1, 1600)
+        img2_s = resize_max_edge(img2, 1600)
+        stitched = stitch_images(img1_s, img2_s, iterations=4000, threshold=3.0, nfeatures=2000)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     ok, buf = cv2.imencode('.png', stitched)

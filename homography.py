@@ -4,10 +4,10 @@ import argparse
 import cv2
 import numpy as np
 import os
-import matplotlib.pyplot as plt
-import random
 
 def get_keypoints(image, nfeatures=4000):
+    if image is None:
+        raise ValueError("Input image is empty (failed to load). Check the path.")
     greyscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     orb = cv2.ORB_create(nfeatures=nfeatures)
     kp = orb.detect(greyscale_image, None)
@@ -17,115 +17,22 @@ def get_keypoints(image, nfeatures=4000):
     return kp, des
 
 
-def match_keypoints(des1, des2):
+def match_keypoints(des1, des2, ratio=0.75):
+    if des1 is None or des2 is None:
+        raise ValueError("Descriptor extraction failed; no features found in one or both images.")
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    matches = bf.knnMatch(des1, des2, k=2)
+    matches_knn = bf.knnMatch(des1, des2, k=2)
     good = []
-    for m,n in matches:
-        if m.distance < 0.75*n.distance:
-            good.append([m.queryIdx,n.trainIdx])
+    for m_n in matches_knn:
+        if len(m_n) < 2:
+            continue
+        m, n = m_n
+        if m.distance < ratio * n.distance:
+            good.append([m.queryIdx, n.trainIdx])
     good = np.array(good, dtype=np.int32)
     return good
 
-def reprojection_h(src, dst,H, threshold):
-    src_h = np.hstack((src.astype(np.float64), np.ones((len(src), 1))))
-    proj  = (H @ src_h.T).T                  # (N,3)
-    proj_xy = proj[:, :2] / proj[:, 2:3]
-    err = np.linalg.norm(proj_xy - dst.astype(np.float64), axis=1)
-    inlier_mask = (err <= threshold)
-    return inlier_mask, err
-
-def findHomography(src, dst, iterations, threshold):
-    print(f"Estimating Homography with {iterations} iterations and {threshold} threshold")
-    best_H = None
-    max_inliers = 0
-    best_mask = None
-    for i in range(iterations):
-        sample_indices = np.random.choice(src.shape[0], size=4, replace=False)
-        src_samples = src[sample_indices]
-        dst_samples = dst[sample_indices]
-        ## Normalize Samples
-        eps = 1e-6
-        src_mean = np.mean(src_samples, axis=0)
-        src_delta = src_samples - src_mean
-        src_var = np.mean(np.sqrt(src_delta[:, 0]**2 + src_delta[:,1]**2), axis=0)
-        src_s = np.sqrt(2)/max(src_var,eps) 
-        dst_mean = np.mean(dst_samples, axis=0)
-        dst_delta = dst_samples - dst_mean
-        dst_var = np.mean(np.sqrt(dst_delta[:, 0]**2 +dst_delta[:, 1]**2), axis=0)
-        dst_s = np.sqrt(2)/max(dst_var, eps)
-        T_dst = np.array([[dst_s, 0, -1*dst_s*dst_mean[0]],
-                        [0, dst_s, -1*dst_s*dst_mean[1]],
-                        [0,0,1]])  
-        T_src = np.array([[src_s, 0, -1*src_s*src_mean[0]],
-                        [0, src_s, -1*src_s*src_mean[1]],
-                        [0,0,1]])  
-        src_h = np.hstack((src_samples, np.ones((len(src_samples),1))))
-        dst_h = np.hstack((dst_samples, np.ones((len(dst_samples),1))))
-
-        A = np.zeros((8, 9), dtype=np.float64)
-        src_samples = (T_src @ src_h.T).T
-        dst_samples = (T_dst@ dst_h.T).T
-        for k in range(len(src_samples)):
-            src_x, src_y, w = src_samples[k]
-            dst_x, dst_y, w_ = dst_samples[k]
-            vec_1 = np.array((-src_x, -src_y, -1, 0, 0, 0, src_x*dst_x, dst_x*src_y, dst_x))
-            vec_2 = np.array((0,0,0, -src_x, -src_y, -1,src_x*dst_y, src_y*dst_y, dst_y))
-            A[2*k, :] = vec_1
-            A[2*k +1, :] = vec_2
-        U, S, Vt = np.linalg.svd(A)
-        h = Vt[-1]            # (9,)
-        Hn = h.reshape(3, 3)  # normalized H
-        H  = np.linalg.inv(T_dst) @ Hn @ T_src
-        H /= H[2, 2]
-        inliers_mask, inliers = reprojection_h(src, dst, H, threshold)
-        n_in = int(inliers_mask.sum())
-
-        if n_in > max_inliers:
-            max_inliers = n_in
-            best_H = H
-            best_mask = inliers_mask
-            print(f"Updated best: {max_inliers} inliers")
-
-    if best_mask is None or max_inliers < 4:
-        raise RuntimeError("Failed to estimate a homography")
-
-    eps = 1e-6
-    src_samples = src[best_mask]
-    dst_samples = dst[best_mask]
-    src_mean = np.mean(src_samples, axis=0)
-    src_delta = src_samples - src_mean
-    src_var = np.mean(np.sqrt(src_delta[:, 0]**2 + src_delta[:,1]**2), axis=0)
-    src_s = np.sqrt(2)/max(src_var,eps) 
-    dst_mean = np.mean(dst_samples, axis=0)
-    dst_delta = dst_samples - dst_mean
-    dst_var = np.mean(np.sqrt(dst_delta[:, 0]**2 +dst_delta[:, 1]**2), axis=0)
-    dst_s = np.sqrt(2)/max(dst_var, eps)
-    T_dst = np.array([[dst_s, 0, -1*dst_s*dst_mean[0]],
-                    [0, dst_s, -1*dst_s*dst_mean[1]],
-                    [0,0,1]])  
-    T_src = np.array([[src_s, 0, -1*src_s*src_mean[0]],
-                    [0, src_s, -1*src_s*src_mean[1]],
-                    [0,0,1]])  
-    src_h = np.hstack((src_samples, np.ones((len(src_samples),1))))
-    dst_h = np.hstack((dst_samples, np.ones((len(dst_samples),1))))
-
-    A = np.zeros((2*len(src_samples), 9), dtype=np.float64)
-    src_samples = (T_src @ src_h.T).T
-    dst_samples = (T_dst@ dst_h.T).T
-    for k in range(len(src_samples)):
-        src_x, src_y, w = src_samples[k]
-        dst_x, dst_y, w_ = dst_samples[k]
-        vec_1 = np.array((-src_x, -src_y, -1, 0, 0, 0, src_x*dst_x, dst_x*src_y, dst_x))
-        vec_2 = np.array((0,0,0, -src_x, -src_y, -1,src_x*dst_y, src_y*dst_y, dst_y))
-        A[2*k, :] = vec_1
-        A[2*k +1, :] = vec_2
-    U, S, Vt = np.linalg.svd(A)
-    h = Vt[-1]            # (9,)
-    Hn = h.reshape(3, 3)  # normalized H
-    H  = np.linalg.inv(T_dst) @ Hn @ T_src
-    H /= H[2, 2]
-    return H
+## Simplified: using OpenCV's findHomography with RANSAC
 
 
 def bounds(img1_shape, img2_shape, H):
@@ -197,51 +104,23 @@ def simple_blend(warped_img, warped_mask, ref_img_on_canvas, ref_mask):
     return out
 
 
-def combine(images):
-    kp1, des1 = get_keypoints(images[0])
-    kp2, des2 = get_keypoints(images[1])
-    matches = match_keypoints(des1, des2)
-    print(f"Keypoints Source: {kp1.shape}")
-    print(f"Keypoints Destination: {kp2.shape}")
-    print(f"Matches found: {matches.shape}")
-    if len(matches) < 4:
-        raise ValueError("Not enough matches found")
-    print(f"First 4 matches: {matches[:4]}")
-    src = kp1[matches[:, 0]]
-    dst = kp2[matches[:, 1]]
-    
-    H = findHomography(src, dst, 20000, 3)
-
-    canvas_size, T, offset = bounds(images[0].shape, images[1].shape, H)
-    print(f"Computed Canvassize {canvas_size} with offset {offset}")
-
-    W, Hh = canvas_size
-
-    # warp img1 into canvas
-    H_canvas = T @ H
-    warped1, mask1 = warp_to_canvas(images[0], H, (W, Hh), T)   # or inverse_warp_nn(img1, H_canvas, (W,Hh))
-
-    # paste img2 into canvas
-    ref2_on_canvas, mask2 = paste_reference(images[1], (W, Hh), offset)
-
-    # blend
-    stitched = simple_blend(warped1, mask1, ref2_on_canvas, mask2)
-    plt.imshow(stitched); plt.axis('off'); plt.show()
-
-    return 
+## Removed combine() for simplicity
 
 
-def stitch_images(img1_bgr, img2_bgr, iterations: int = 8000, threshold: float = 3.0):
+def stitch_images(img1_bgr, img2_bgr, nfeatures: int = 4000, ratio: float = 0.75, ransac_thresh: float = 3.0):
     """Stitch two BGR images and return the stitched BGR image."""
-    kp1, des1 = get_keypoints(img1_bgr)
-    kp2, des2 = get_keypoints(img2_bgr)
-    matches = match_keypoints(des1, des2)
+    kp1, des1 = get_keypoints(img1_bgr, nfeatures=nfeatures)
+    kp2, des2 = get_keypoints(img2_bgr, nfeatures=nfeatures)
+    matches = match_keypoints(des1, des2, ratio=ratio)
     if len(matches) < 4:
-        raise ValueError("Not enough matches found")
-    src = kp1[matches[:, 0]]
-    dst = kp2[matches[:, 1]]
+        raise ValueError("Not enough good matches to estimate a homography.")
+    src = kp1[matches[:, 0]].astype(np.float32)
+    dst = kp2[matches[:, 1]].astype(np.float32)
 
-    H = findHomography(src, dst, iterations, threshold)
+    H, mask = cv2.findHomography(src, dst, method=cv2.RANSAC, ransacReprojThreshold=ransac_thresh)
+    if H is None:
+        raise RuntimeError("Homography estimation failed.")
+
     canvas_size, T, offset = bounds(img1_bgr.shape, img2_bgr.shape, H)
     W, Hh = canvas_size
 
@@ -254,15 +133,28 @@ def stitch_images(img1_bgr, img2_bgr, iterations: int = 8000, threshold: float =
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("-i", "--images", required=True, nargs="+", help="Path to the images to stitch")
+    script_dir = os.path.dirname(__file__)
+    default_img1 = os.path.join(script_dir, "test_images", "IMG_2636.jpeg")
+    default_img2 = os.path.join(script_dir, "test_images", "IMG_2637.jpeg")
+    ap.add_argument("image1", nargs="?", default=default_img1, help="Path to first image")
+    ap.add_argument("image2", nargs="?", default=default_img2, help="Path to second image")
+    ap.add_argument("-o", "--output", default="stitched_output.png", help="Output image path")
+    ap.add_argument("--features", type=int, default=4000, help="Number of ORB features")
+    ap.add_argument("--ratio", type=float, default=0.75, help="Lowe's ratio for KNN match filtering")
+    ap.add_argument("--ransac", type=float, default=3.0, help="RANSAC reprojection threshold (pixels)")
     args = ap.parse_args()
-    images = args.images
-    if len(images) < 2:
-        raise ValueError("At least two images are required to stitch")
-    images_bgr = [cv2.imread(image, cv2.IMREAD_COLOR) for image in images]
-    stitched = stitch_images(images_bgr[0], images_bgr[1])
-    out_path = "stitched_output.png"
-    cv2.imwrite(out_path, stitched)
-    print(f"Wrote {out_path}")
+
+    img1_bgr = cv2.imread(args.image1, cv2.IMREAD_COLOR)
+    img2_bgr = cv2.imread(args.image2, cv2.IMREAD_COLOR)
+    if img1_bgr is None:
+        raise FileNotFoundError(f"Failed to load image1: {args.image1}")
+    if img2_bgr is None:
+        raise FileNotFoundError(f"Failed to load image2: {args.image2}")
+
+    stitched = stitch_images(img1_bgr, img2_bgr, nfeatures=args.features, ratio=args.ratio, ransac_thresh=args.ransac)
+    ok = cv2.imwrite(args.output, stitched)
+    if not ok:
+        raise RuntimeError(f"Failed to write output image: {args.output}")
+    print(f"Wrote {args.output}")
 if __name__ == "__main__":
     main()

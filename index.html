@@ -119,7 +119,10 @@
           fd.append('file1', file1.files[0]);
           fd.append('file2', file2.files[0]);
           try {
-            const res = await fetch('/api/homography', { method: 'POST', body: fd });
+            const controller = new AbortController();
+            const t = setTimeout(() => controller.abort(), 30000);
+            const res = await fetch('/api/homography', { method: 'POST', body: fd, signal: controller.signal });
+            clearTimeout(t);
             if (!res.ok) {
               const err = await res.json().catch(() => ({}));
               throw new Error(err.error || 'Request failed');
@@ -130,7 +133,11 @@
             resultEl.style.display = 'block';
             statusEl.textContent = '';
           } catch (err) {
-            statusEl.textContent = 'Error: ' + (err.message || err);
+            if (err.name === 'AbortError') {
+              statusEl.textContent = 'Error: Timed out (30s). Try smaller images.';
+            } else {
+              statusEl.textContent = 'Error: ' + (err.message || err);
+            }
           }
         });
         return;
