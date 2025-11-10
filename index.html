@@ -34,12 +34,6 @@
     // Minimal blog data
     const BLOG_POSTS = [
       {
-        slug: 'homography',
-        title: 'Test out Homography',
-        date: '2025-11-05',
-        description: 'Upload two images and see the stitched panorama.'
-      },
-      {
         slug: 'ai_compute',
         title: 'What does an LLM actually compute?',
         date: '2025-10-12',
@@ -86,62 +80,7 @@
       }
       titleEl.textContent = post.title;
       metaEl.textContent = post.date;
-      if (slug === 'homography') {
-        contentEl.innerHTML = `
-          <div class="callout">
-            <p>Select two overlapping photos to compute a panorama using homography estimation.</p>
-          </div>
-          <form id="h-form" class="grid two" style="align-items:flex-start;">
-            <div>
-              <label>Image 1<br><input id="h-file1" type="file" accept="image/*" required></label>
-            </div>
-            <div>
-              <label>Image 2<br><input id="h-file2" type="file" accept="image/*" required></label>
-            </div>
-            <div style="grid-column: 1 / -1;">
-              <button type="submit" class="btn">Compute</button>
-              <span id="h-status" style="margin-left:10px;color:var(--muted);"></span>
-            </div>
-          </form>
-          <div id="h-result" class="callout" style="margin-top:12px; display:none;"></div>
-        `;
-        const form = document.getElementById('h-form');
-        const file1 = document.getElementById('h-file1');
-        const file2 = document.getElementById('h-file2');
-        const statusEl = document.getElementById('h-status');
-        const resultEl = document.getElementById('h-result');
-        form.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          if (!file1.files[0] || !file2.files[0]) return;
-          statusEl.textContent = 'Computing…';
-          resultEl.style.display = 'none';
-          const fd = new FormData();
-          fd.append('file1', file1.files[0]);
-          fd.append('file2', file2.files[0]);
-          try {
-            const controller = new AbortController();
-            const t = setTimeout(() => controller.abort(), 30000);
-            const res = await fetch('/api/homography', { method: 'POST', body: fd, signal: controller.signal });
-            clearTimeout(t);
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              throw new Error(err.error || 'Request failed');
-            }
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            resultEl.innerHTML = `<img src="${url}" alt="Stitched result" style="max-width:100%;height:auto;border-radius:8px;">`;
-            resultEl.style.display = 'block';
-            statusEl.textContent = '';
-          } catch (err) {
-            if (err.name === 'AbortError') {
-              statusEl.textContent = 'Error: Timed out (30s). Try smaller images.';
-            } else {
-              statusEl.textContent = 'Error: ' + (err.message || err);
-            }
-          }
-        });
-        return;
-      }
+      // No special handling; load markdown file for each post
       try {
         const md = await fetchText(post.file);
         const html = window.marked.parse(md);
@@ -182,7 +121,7 @@
       <nav class="main-nav" aria-label="Primary">
         <a href="#home" class="active">Home</a>
         <a href="#blog">Blog</a>
-        <a href="#gallery">Gallery</a>
+        <a href="#random">Random</a>
       </nav>
     </div>
   </header>
@@ -197,7 +136,7 @@
           I also enjoy analysing football data and football games, players and teams in general. I'm starting this blog to share some things I learned, keep me busy and mainly I just feel like I have to do something otherwise I will massively fall behind. I'm still a football fanatic and enjoy the occasional run, cycle or sail. <br> Favorite Footballers: Mesut Özil and Cristiano Ronaldo.</p>
         <div class="cta-row">
           <a class="btn" href="#blog">Read the blog</a>
-          <a class="btn btn-secondary" href="#gallery">View the gallery</a>
+          <a class="btn btn-secondary" href="#random">Random Page</a>
         </div>
       </div>
 
@@ -205,7 +144,6 @@
         <div class="callout">
           <h3>Latest</h3>
           <ul class="unstyled">
-            <li><a href="#blog/homography">Test out Homography</a></li>
             <li><a href="#blog/ai_compute">What does an LLM actually compute?</a></li>
           </ul>
         </div>
@@ -230,22 +168,11 @@
       </article>
     </section>
 
-    <!-- Gallery -->
-    <section data-route="gallery" style="display:none">
-      <h2>Gallery</h2>
-      <div class="grid three" id="gallery-grid">
-        <figure class="card">
-          <img src="https://picsum.photos/seed/llm/600/400" alt="Random placeholder" />
-          <figcaption>Research notes, diagrams, and prototypes.</figcaption>
-        </figure>
-        <figure class="card">
-          <img src="https://picsum.photos/seed/systems/600/400" alt="Random placeholder" />
-          <figcaption>Systems and tooling experiments.</figcaption>
-        </figure>
-        <figure class="card">
-          <img src="https://picsum.photos/seed/math/600/400" alt="Random placeholder" />
-          <figcaption>Math and visualization sketches.</figcaption>
-        </figure>
+    <!-- Random Page -->
+    <section data-route="random" style="display:none">
+      <h2>Random</h2>
+      <div class="callout">
+        <p>This page will be filled with random things.</p>
       </div>
     </section>
   </main>
