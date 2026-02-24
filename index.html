@@ -8,6 +8,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+  <!-- Set theme before paint to avoid flash -->
+  <script>
+    (function () {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        document.documentElement.dataset.theme = saved;
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
   <script>
     // Simple client-side router
     function navigate(route) {
@@ -33,6 +44,13 @@
 
     // Minimal blog data
     const BLOG_POSTS = [
+      {
+        slug: 'transferflows',
+        title: 'Visualising Football Transfer Flows',
+        date: '2026-02-24',
+        description: 'An interactive map of player transfers between countries, leagues, and clubs — built with DuckDB, pydeck, and Streamlit.',
+        file: 'Transferflows.md'
+      },
       {
         slug: 'ai_compute',
         title: 'What does an LLM actually compute?',
@@ -98,7 +116,26 @@
     }
 
     window.addEventListener('hashchange', onRouteChange);
-    window.addEventListener('DOMContentLoaded', onRouteChange);
+    window.addEventListener('DOMContentLoaded', () => {
+      onRouteChange();
+      updateToggleIcon();
+    });
+
+    function toggleTheme() {
+      const el = document.documentElement;
+      const next = el.dataset.theme === 'dark' ? 'light' : 'dark';
+      el.dataset.theme = next;
+      localStorage.setItem('theme', next);
+      updateToggleIcon();
+    }
+
+    function updateToggleIcon() {
+      const btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      btn.textContent = isDark ? '☀' : '🌙';
+      btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    }
   </script>
   <!-- Marked.js for Markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -122,6 +159,7 @@
         <a href="#home" class="active">Home</a>
         <a href="#blog">Blog</a>
         <a href="#random">Random</a>
+        <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
       </nav>
     </div>
   </header>
@@ -144,6 +182,7 @@
         <div class="callout">
           <h3>Latest</h3>
           <ul class="unstyled">
+            <li><a href="#blog/transferflows">Visualising Football Transfer Flows</a></li>
             <li><a href="#blog/ai_compute">What does an LLM actually compute?</a></li>
           </ul>
         </div>
