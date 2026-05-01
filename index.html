@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Academic Landing</title>
+  <title>Kaan Bayraktar</title>
   <link rel="stylesheet" href="./styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
   <!-- Set theme before paint to avoid flash -->
   <script>
     (function () {
@@ -19,11 +20,12 @@
       }
     })();
   </script>
+
   <script>
-    // Simple client-side router
     function navigate(route) {
       window.location.hash = route;
     }
+
     function onRouteChange() {
       const hash = window.location.hash.replace('#', '') || 'home';
       document.querySelectorAll('[data-route]').forEach(el => {
@@ -32,6 +34,11 @@
       document.querySelectorAll('nav a').forEach(a => {
         a.classList.toggle('active', a.getAttribute('href') === '#' + hash);
       });
+      const onHome = hash === 'home';
+      const cp = document.getElementById('corner-photo');
+      const sl = document.getElementById('slideshow-left');
+      if (cp) cp.style.visibility = onHome ? 'visible' : 'hidden';
+      if (sl) sl.style.visibility = onHome ? 'visible' : 'hidden';
       if (hash === 'blog') {
         renderBlogList();
       } else if (hash.startsWith('blog/')) {
@@ -42,8 +49,14 @@
       }
     }
 
-    // Minimal blog data
     const BLOG_POSTS = [
+      {
+        slug: 'model-evolution',
+        title: 'Model Evolution',
+        date: '2026-03-28',
+        description: 'Train a neural network live in the browser. Configure model size, layers, activation, learning rate, batch size, and dataset — watch the decision boundary evolve in real time.',
+        url: '../modelevolution/index.html'
+      },
       {
         slug: 'transferflows',
         title: 'Visualising Football Transfer Flows',
@@ -70,25 +83,28 @@
       const container = document.getElementById('blog-list');
       container.innerHTML = '';
       BLOG_POSTS.forEach(post => {
-        const card = document.createElement('article');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="card-body">
-            <h3 class="card-title">${post.title}</h3>
-            <div class="card-meta">${post.date}</div>
-            <p class="card-desc">${post.description}</p>
-            <button class="card-btn" aria-label="Read ${post.title}">Read</button>
+        const entry = document.createElement('div');
+        entry.className = 'blog-entry';
+        entry.innerHTML = `
+          <div class="blog-entry-header">
+            <span class="blog-entry-title">${post.title}</span>
+            <span class="blog-entry-date">${post.date}</span>
           </div>
+          <p class="blog-entry-desc">${post.description}</p>
         `;
-        card.querySelector('.card-btn').addEventListener('click', () => navigate('blog/' + post.slug));
-        container.appendChild(card);
+        if (post.url) {
+          entry.addEventListener('click', () => window.open(post.url, '_blank'));
+        } else {
+          entry.addEventListener('click', () => navigate('blog/' + post.slug));
+        }
+        container.appendChild(entry);
       });
     }
 
     async function renderBlogPost(slug) {
       const post = BLOG_POSTS.find(p => p.slug === slug);
       const titleEl = document.getElementById('blog-post-title');
-      const metaEl = document.getElementById('blog-post-meta');
+      const metaEl  = document.getElementById('blog-post-meta');
       const contentEl = document.getElementById('blog-post-content');
       if (!post) {
         titleEl.textContent = 'Not found';
@@ -97,20 +113,17 @@
         return;
       }
       titleEl.textContent = post.title;
-      metaEl.textContent = post.date;
-      // No special handling; load markdown file for each post
+      metaEl.textContent  = post.date;
       try {
-        const md = await fetchText(post.file);
+        const md   = await fetchText(post.file);
         const html = window.marked.parse(md);
         contentEl.innerHTML = html;
         if (window.MathJax && window.MathJax.typesetPromise) {
           await MathJax.typesetPromise();
         }
       } catch (e) {
-        const isFileProtocol = window.location.protocol === 'file:';
-        const hint = isFileProtocol
-          ? ' This usually happens when opening the HTML file directly. Please run a local server (e.g., python3 -m http.server) and open via http://localhost.'
-          : '';
+        const isFile = window.location.protocol === 'file:';
+        const hint   = isFile ? ' Run a local server (python3 -m http.server) and open via http://localhost.' : '';
         contentEl.innerHTML = '<p>Failed to load post.' + hint + '</p>';
       }
     }
@@ -122,7 +135,7 @@
     });
 
     function toggleTheme() {
-      const el = document.documentElement;
+      const el   = document.documentElement;
       const next = el.dataset.theme === 'dark' ? 'light' : 'dark';
       el.dataset.theme = next;
       localStorage.setItem('theme', next);
@@ -130,69 +143,88 @@
     }
 
     function updateToggleIcon() {
-      const btn = document.getElementById('theme-toggle');
+      const btn  = document.getElementById('theme-toggle');
       if (!btn) return;
-      const isDark = document.documentElement.dataset.theme === 'dark';
-      btn.textContent = isDark ? '☀' : '🌙';
-      btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+      const dark = document.documentElement.dataset.theme === 'dark';
+      btn.textContent = dark ? 'light' : 'dark';
+      btn.title       = dark ? 'Switch to light mode' : 'Switch to dark mode';
     }
   </script>
-  <!-- Marked.js for Markdown rendering -->
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <!-- MathJax for LaTeX rendering -->
   <script>
     window.MathJax = {
-      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+      tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
       svg: { fontCache: 'global' }
     };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" defer></script>
 </head>
 <body>
+
   <header class="site-header">
     <div class="container header-inner">
-      <div class="brand">
-        <div class="brand-title">Kaan Bayraktar</div>
-        <div class="brand-subtitle">Personal Blog and Notes</div>
-      </div>
+      <a class="brand" href="#home" onclick="navigate('home')">
+        <span class="brand-name">Kaan</span>
+        <img src="./Ismail.png" class="brand-logo brand-logo-link" alt="ISMAIL"
+             onclick="event.stopPropagation(); window.open('https://science.nasa.gov/specials/your-name-in-landsat/', '_blank', 'noopener')">
+        <span class="brand-name">Bayraktar</span>
+      </a>
       <nav class="main-nav" aria-label="Primary">
-        <a href="#home" class="active">Home</a>
+        <a href="#home">Home</a>
         <a href="#blog">Blog</a>
-        <a href="#random">Random</a>
-        <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
+        <a href="#misc">Misc</a>
+        <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">dark</button>
       </nav>
     </div>
   </header>
 
   <main class="container">
+
     <!-- Home -->
     <section data-route="home" style="display:none">
       <div class="hero">
-        <h1>About Me</h1>
-        <p class="lead">I'm a Master's Student in Computer Science at ETH Zurich. 
-          I'm interested in machine learning and computer vision. I enjoy learning about current topics focusing on explainable AI systems and some security aspects. 
-          I also enjoy analysing football data and football games, players and teams in general. I'm starting this blog to share some things I learned, keep me busy and mainly I just feel like I have to do something otherwise I will massively fall behind. I'm still a football fanatic and enjoy the occasional run, cycle or sail. <br> Favorite Footballers: Mesut Özil and Cristiano Ronaldo.</p>
-        <div class="cta-row">
-          <a class="btn" href="#blog">Read the blog</a>
-          <a class="btn btn-secondary" href="#random">Random Page</a>
+        <h1>Kaan Bayraktar</h1>
+        <p class="lead">I'm a masters student in computer science at ETH Zürich. I'm interested in explainable and interpretable AI and computer vision. Outside of school I enjoy analysing football data,
+  the occasional run, cycle, or sail; and above all football. Recently I've gotten pretty interested in learning about- and using AI for social good and its governance (and trying to keep up with ai advances:))</p>
+        <div class="social-row">
+          <a href="https://github.com/bayki2004" target="_blank" rel="noopener">GitHub</a>
+          <span class="social-sep">·</span>
+          <a href="https://www.linkedin.com/in/kaan-bayraktar-227797253" target="_blank" rel="noopener">LinkedIn</a>
+          <span class="social-sep">·</span>
+          <a href="https://scholar.google.com/citations?user=O7qFU0EAAAAJ&hl=en" target="_blank" rel="noopener">Google Scholar</a>
         </div>
       </div>
 
-      <div class="grid two">
-        <div class="callout">
-          <h3>Latest</h3>
-          <ul class="unstyled">
-            <li><a href="#blog/transferflows">Visualising Football Transfer Flows</a></li>
-            <li><a href="#blog/ai_compute">What does an LLM actually compute?</a></li>
-          </ul>
-        </div>
+      <div class="latest">
+        <div class="section-label">Latest</div>
+        <ul class="post-list">
+          <li>
+            <a href="../modelevolution/index.html" target="_blank">
+              <span class="post-list-title">Model Evolution</span>
+              <span class="post-list-date">2026-03-28</span>
+            </a>
+          </li>
+          <li>
+            <a href="#blog/transferflows" onclick="navigate('blog/transferflows')">
+              <span class="post-list-title">Visualising Football Transfer Flows</span>
+              <span class="post-list-date">2026-02-24</span>
+            </a>
+          </li>
+          <li>
+            <a href="#blog/ai_compute" onclick="navigate('blog/ai_compute')">
+              <span class="post-list-title">What does an LLM actually compute?</span>
+              <span class="post-list-date">2025-10-12</span>
+            </a>
+          </li>
+        </ul>
       </div>
     </section>
 
     <!-- Blog list -->
     <section data-route="blog" style="display:none">
       <h2>Blog</h2>
-      <div id="blog-list" class="grid three"></div>
+      <div id="blog-list"></div>
     </section>
 
     <!-- Blog post detail -->
@@ -202,28 +234,99 @@
         <div id="blog-post-meta" class="post-meta"></div>
         <div id="blog-post-content" class="post-content"></div>
         <div class="post-nav">
-          <a href="#blog" class="btn">← Back to Blog</a>
+          <a href="#blog" class="btn" onclick="navigate('blog')">← Back to Blog</a>
         </div>
       </article>
     </section>
 
-    <!-- Random Page -->
-    <section data-route="random" style="display:none">
-      <h2>Random</h2>
-      <div class="callout">
-        <p>This page will be filled with random things.</p>
-      </div>
+    <!-- Misc -->
+    <section data-route="misc" style="display:none">
+      <h2>Misc</h2>
+      <p class="misc-desc">Travel reports, predictions, links to things I find interesting.</p>
     </section>
+
   </main>
 
   <footer class="site-footer">
     <div class="container">
-      <span>© <span id="year"></span> Kaan Bayraktar</span>
+      <span class="footer-copy">© <span id="year"></span> Kaan Bayraktar</span>
     </div>
   </footer>
 
+  <img src="./pictures/me.jpeg" alt="" class="corner-photo" id="corner-photo">
+
+  <div class="slideshow-left" id="slideshow-left">
+    <div class="slide-slot"><img src="" alt=""></div>
+    <div class="slide-slot"><img src="" alt=""></div>
+    <div class="slide-slot"><img src="" alt=""></div>
+  </div>
+
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    /* ── Corner photo: align top so ~20% is above the hero border ── */
+    function positionCornerPhoto() {
+      const hero  = document.querySelector('.hero');
+      const photo = document.getElementById('corner-photo');
+      if (!hero || !photo) return;
+      const heroBottom  = hero.getBoundingClientRect().bottom;
+      const photoHeight = photo.offsetHeight || 197;
+      photo.style.top   = (heroBottom - photoHeight * 0.2) + 'px';
+    }
+    window.addEventListener('load',   positionCornerPhoto);
+    window.addEventListener('resize', positionCornerPhoto);
+
+    /* ── Left slideshow ── */
+    const SLIDE_PHOTOS = [
+      './pictures/IMG_1955.jpeg',
+      './pictures/IMG_1968.jpeg',
+      './pictures/IMG_3680.jpeg',
+      './pictures/IMG_4441.jpeg',
+      './pictures/IMG_4493.jpeg',
+      './pictures/IMG_4526.jpeg',
+      './pictures/IMG_4611.jpeg',
+      './pictures/IMG_4768.jpeg',
+      './pictures/IMG_4802.jpeg',
+    ];
+
+    let activeIndices = [];
+
+    function initSlideshow() {
+      const slots = document.querySelectorAll('.slide-slot img');
+      if (!slots.length) return;
+      const shuffled = [...SLIDE_PHOTOS].sort(() => Math.random() - 0.5);
+      activeIndices = [];
+      slots.forEach((img, i) => {
+        const idx = SLIDE_PHOTOS.indexOf(shuffled[i]);
+        img.src = shuffled[i];
+        activeIndices.push(idx);
+      });
+      scheduleNextSlide();
+    }
+
+    function scheduleNextSlide() {
+      setTimeout(advanceSlide, 1800 + Math.random() * 2400);
+    }
+
+    function advanceSlide() {
+      const slots = document.querySelectorAll('.slide-slot img');
+      if (!slots.length) return;
+      const slotIdx  = Math.floor(Math.random() * slots.length);
+      const img      = slots[slotIdx];
+      const shown    = new Set(activeIndices);
+      const pool     = SLIDE_PHOTOS.map((_, i) => i).filter(i => !shown.has(i));
+      if (!pool.length) { scheduleNextSlide(); return; }
+      const newIdx   = pool[Math.floor(Math.random() * pool.length)];
+      img.style.opacity = '0';
+      setTimeout(() => {
+        img.src = SLIDE_PHOTOS[newIdx];
+        activeIndices[slotIdx] = newIdx;
+        img.style.opacity = '1';
+      }, 500);
+      scheduleNextSlide();
+    }
+
+    window.addEventListener('DOMContentLoaded', initSlideshow);
   </script>
 </body>
 </html>
